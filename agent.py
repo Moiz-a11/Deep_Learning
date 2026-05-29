@@ -50,20 +50,35 @@ class Agent:
         policy_dqn = DQN(num_states,num_actions).to(device)
 
         if is_training:
+           
             memory = ReplyMemory(self.replay_memory_size)
+            epsilon = self.epsilon_init
         for episode in itertools.count():
             state, _  = env.reset()
+            state = torch.tensor(state,dtype = torch.float,device=device)
             episode_rewards = 0
             terminated =False
 
             while not terminated:
-                action = env.action_space_sample()
+                if is_training and random.random() < epsilon:
+                    action = env.action_space_sample()
+                    action = torch.tensor(state,dtype = torch.long,device=device)
 
-                next_state , reward ,terminated, _, _ = env.step(action)
+                else:
+                     with torch.no_grad():
+                        action = policy_dqn(state.unsqueeze(dim=0)).argmax()
+
+                next_state , reward ,terminated, _, _ = env.step(action.item())
+                #create tensors 
+                reward = torch.tensor(reward,dtype=torch.float,device=device)
+                next_state = torch.tensor(next_state,dtype=torch.float,device=device)
+
+
                 if is_training:
                     memory.append((state,action,new_state,reward,terminated))
                 state= new_state
                 episode_rewards += rewards
-            print(f"for episode = {episode+1} total_reward = {episode_rewards}")
-
+            print(f"for episode = {episode+1} total_reward = {episode_rewards} & epsilon = {epsilon}")
+            # epsilon decay
+            epsilon = max(epsilon*self.epsilon_decay,self_epsilon_min)
    # env.close() manually stop  instead automatically 
